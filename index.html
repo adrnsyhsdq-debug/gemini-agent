@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Z AI Agent</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body { font-family: 'Outfit', sans-serif; background: #0F0E17; }
+  .chat-scroll::-webkit-scrollbar { width: 4px; }
+  .chat-scroll::-webkit-scrollbar-thumb { background: #35324A; border-radius: 2px; }
+  .typing-dot { animation: blink 1.4s infinite both; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+</style>
+</head>
+<body class="text-white flex items-center justify-center min-h-screen p-4">
+
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+  <div class="absolute top-0 left-0 w-72 h-72 bg-[#FF5C39] rounded-full blur-[120px] opacity-20"></div>
+  <div class="absolute bottom-0 right-0 w-72 h-72 bg-[#38BDF8] rounded-full blur-[120px] opacity-20"></div>
+</div>
+
+<div class="relative w-full max-w-md bg-[#1A1825] border border-[#3A3658] rounded-3xl shadow-2xl flex flex-col h-[85vh]">
+  <div class="flex items-center gap-3 p-4 border-b border-[#3A3658]">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C39] to-[#E94560] flex items-center justify-center font-bold text-lg">Z</div>
+    <div>
+      <h1 class="font-bold text-lg leading-tight">Z AI Agent</h1>
+      <p class="text-xs text-green-400 flex items-center gap-1"><span class="w-2 h-2 bg-green-400 rounded-full"></span> Online</p>
+    </div>
+  </div>
+
+  <div id="chatBox" class="flex-1 p-4 space-y-3 overflow-y-auto chat-scroll">
+    <div class="flex gap-2">
+      <div class="bg-[#221F30] rounded-2xl rounded-tl-none p-3 max-w-[80%] text-sm">
+        Halo! Saya Z AI (GLM-4 + Composio). Mau saya lakukan apa?
+      </div>
+    </div>
+  </div>
+
+  <div id="statusBar" class="px-4 py-1 text-xs text-yellow-400 hidden items-center gap-2">
+    <i class="fa-solid fa-bolt"></i> <span>Menjalankan tool Composio...</span>
+  </div>
+
+  <div class="p-4 border-t border-[#3A3658]">
+    <div class="flex items-end gap-2 bg-[#221F30] rounded-2xl p-2 border border-[#3A3658]">
+      <textarea id="userInput" rows="1" placeholder="Ketik pesan..." class="flex-1 bg-transparent outline-none px-2 py-2 text-sm resize-none"></textarea>
+      <button id="sendBtn" onclick="sendMessage()" class="w-9 h-9 rounded-xl bg-[#FF5C39] flex items-center justify-center">
+        <i class="fa-solid fa-paper-plane text-sm"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const chatBox = document.getElementById('chatBox');
+  const userInput = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const statusBar = document.getElementById('statusBar');
+
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = userInput.scrollHeight + 'px';
+  });
+
+  function addMessage(text, isUser) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`;
+    const bubble = document.createElement('div');
+    bubble.className = `rounded-2xl p-3 max-w-[80%] text-sm ${isUser ? 'bg-[#FF5C39] rounded-tr-none' : 'bg-[#221F30] rounded-tl-none'}`;
+    bubble.innerText = text;
+    wrapper.appendChild(bubble);
+    chatBox.appendChild(wrapper);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function showTyping() {
+    const typing = document.createElement('div');
+    typing.id = 'typing';
+    typing.className = 'flex gap-2';
+    typing.innerHTML = `<div class="bg-[#221F30] rounded-2xl rounded-tl-none p-4 flex gap-1"><span class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></span><span class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></span><span class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></span></div>`;
+    chatBox.appendChild(typing);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const msg = userInput.value.trim();
+    if (!msg) return;
+    addMessage(msg, true);
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg })
+      });
+      const data = await res.json();
+      document.getElementById('typing')?.remove();
+      
+      if (data.status && data.status.includes('Tool')) {
+        statusBar.classList.remove('hidden');
+        statusBar.classList.add('flex');
+        setTimeout(() => statusBar.classList.add('hidden'), 3000);
+      }
+      addMessage(data.reply || data.error, false);
+    } catch (e) {
+      document.getElementById('typing')?.remove();
+      addMessage("Koneksi error. Pastikan server berjalan.", false);
+    }
+    sendBtn.disabled = false;
+  }
+</script>
+</body>
+</html>
